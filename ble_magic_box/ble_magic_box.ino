@@ -10,16 +10,20 @@ SwRotaryEncoder swEncoder;
 #define SWITCH_PIN 11
 #define BTN_GREEN A1
 #define BTN_BLACK A3
-#define BTN_RED A5
+#define BTN_RED A5 
 #define BTN_WHITE A0
 #define BTN_YELLOW A2
 #define BTN_BLUE A4
-#define ROTARY_A 2
+#define ROTARY_A 7
 #define ROTARY_B 10
+
+uint8_t REcode[6] = {HID_KEY_V};
 
 int pins[6] = {BTN_GREEN, BTN_BLACK, BTN_RED, BTN_WHITE, BTN_YELLOW, BTN_BLUE};
 boolean muted = false;
-bool bank = true;
+bool bank = false;
+bool wasKeyPressed = false;
+int lastRE;
 
 // ************* BLE ***************** //
 BLEDis bledis;
@@ -40,8 +44,14 @@ void setup()
   while (!Serial)
     delay(10); // for nrf52840 with native usb
 
-  swEncoder.begin(ROTARY_A, ROTARY_B);
-  swEncoder.setCallback(encoder_callback);
+  RotaryEncoder.begin(ROTARY_A, ROTARY_B);
+
+  // Start encoder
+  RotaryEncoder.start();
+  lastRE = millis();
+
+  //swEncoder.begin(ROTARY_A, ROTARY_B);
+  //swEncoder.setCallback(encoder_callback);
   
   Bluefruit.begin();
   Bluefruit.setTxPower(0); // { -40, -20, -16, -12, -8, -4, 0, 2, 3, 4, 5, 6, 7, 8 }
@@ -85,25 +95,19 @@ void startAdv(void)
 
 void loop()
 {
-  /* A/B SWITCH */
-  // THIS SUCKS -- checks with every loop()
-  // should set up a event handler!
-  //
-  /*if (digitalRead(SWITCH_PIN) == LOW)
+  checkRE();
+
+  if ( wasKeyPressed )
   {
-    //Serial.println("swtich bank on");
-    bank = true;
+    wasKeyPressed = false;
+    blehid.keyRelease();
+    delay(5);
   }
-  else
-  {
-    Serial.println("swtich bank off");
-    bank = false;
-  }*/
 
   /* MUTE */
   if (digitalRead(MUTE_PIN) == LOW)
   {
-    Serial.println(String(muted));
+    //Serial.println(String(muted));
     uint8_t keycode[6] = {HID_KEY_M};
     if (muted)
       blehid.keyboardReport(shift, keycode);
@@ -111,6 +115,7 @@ void loop()
       blehid.keyboardReport(noshift, keycode);
     muted = !muted;
     delay(300);
+    blehid.keyRelease();
   }
 
   /* BUTTONS */
@@ -118,13 +123,16 @@ void loop()
   {
     if (digitalRead(pins[i]) == LOW)
     {
-      Serial.print("button ");
-      Serial.println(String(i));
-      Serial.print("bank ");
-      Serial.println(String(bank));
-
-      magicButton btn = magicButtons[i + bank]; //bank is either 0 ior 1 (clever use of a bool, eh?)
-      Serial.println(btn.name);
+      wasKeyPressed = true;
+      /*Serial.print("button: ");
+      Serial.print(String(i));
+      Serial.print("; bank: ");
+      Serial.println(String(bank));*/
+      
+      if (digitalRead(SWITCH_PIN) == LOW) bank = 0;
+      else bank = 1;
+      magicButton btn = magicButtons[i + i + bank];
+      //Serial.println(btn.name);
       blehid.keyboardReport(btn.modifier, btn.keycode);
       delay(300);
     }
@@ -132,18 +140,24 @@ void loop()
 }
 
 /* VOLUME */
-void encoder_callback(int step)
-{
-  if (step > 0)
+void checkRE(){
+
+  int value = RotaryEncoder.read();
+
+  if (value && ((millis() - lastRE) > 100))
   {
-    Serial.println("Right");
-    uint8_t keycode[6] = {HID_KEY_V};
-    blehid.keyboardReport(shift, keycode);
+    if ( value > 0 )
+    {
+      blehid.keyboardReport(noshift, REcode);
+      //Serial.println("LEFT");
+    } 
+    else
+    {
+      blehid.keyboardReport(shift, REcode);
+      //Serial.println("RIGHT");
+    }
+      lastRE = millis();
+      blehid.keyRelease();
   }
-  else
-  {
-    Serial.println("Left");
-    uint8_t keycode[6] = {HID_KEY_V};
-    blehid.keyboardReport(noshift, keycode);
-  }
+
 }
