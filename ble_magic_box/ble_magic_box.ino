@@ -18,7 +18,6 @@ SwRotaryEncoder swEncoder;
 #define ROTARY_B 10
 
 uint8_t REcode[6] = {HID_KEY_V};
-
 int pins[6] = {BTN_GREEN, BTN_BLACK, BTN_RED, BTN_WHITE, BTN_YELLOW, BTN_BLUE};
 boolean muted = false;
 bool bank = false;
@@ -41,24 +40,20 @@ void setup()
     pinMode(pins[x], INPUT_PULLUP);
   }
 
-  while (!Serial)
-    delay(10); // for nrf52840 with native usb
+  //while (!Serial) delay(10); // for nrf52840 with native usb
+  // Start encoder
+
 
   RotaryEncoder.begin(ROTARY_A, ROTARY_B);
-
-  // Start encoder
   RotaryEncoder.start();
   lastRE = millis();
-
-  //swEncoder.begin(ROTARY_A, ROTARY_B);
-  //swEncoder.setCallback(encoder_callback);
   
   Bluefruit.begin();
-  Bluefruit.setTxPower(0); // { -40, -20, -16, -12, -8, -4, 0, 2, 3, 4, 5, 6, 7, 8 }
+  Bluefruit.setTxPower(-20); // { -40, -20, -16, -12, -8, -4, 0, 2, 3, 4, 5, 6, 7, 8 }
 
   // Configure and Start Device Information Service
-  bledis.setManufacturer("Adafruit Industries");
-  bledis.setModel("Bluefruit Feather 52x");
+  bledis.setManufacturer("CA13B");
+  bledis.setModel("Magic Box");
   bledis.begin();
   blehid.begin();
   Bluefruit.Periph.setConnInterval(9, 25);
@@ -72,21 +67,9 @@ void startAdv(void)
   Bluefruit.Advertising.addTxPower();
   Bluefruit.Advertising.addAppearance(BLE_APPEARANCE_HID_KEYBOARD);
 
-  // Include BLE HID service
   Bluefruit.Advertising.addService(blehid);
 
-  // There is enough room for the dev name in the advertising packet
   Bluefruit.Advertising.addName();
-
-  /* Start Advertising
-   * - Enable auto advertising if disconnected
-   * - Interval:  fast mode = 20 ms, slow mode = 152.5 ms
-   * - Timeout for fast mode is 30 seconds
-   * - Start(timeout) with timeout = 0 will advertise forever (until connected)
-   * 
-   * For recommended advertising interval
-   * https://developer.apple.com/library/content/qa/qa1931/_index.html   
-   */
   Bluefruit.Advertising.restartOnDisconnect(true);
   Bluefruit.Advertising.setInterval(32, 244); // in unit of 0.625 ms
   Bluefruit.Advertising.setFastTimeout(30);   // number of seconds in fast mode
@@ -124,15 +107,10 @@ void loop()
     if (digitalRead(pins[i]) == LOW)
     {
       wasKeyPressed = true;
-      /*Serial.print("button: ");
-      Serial.print(String(i));
-      Serial.print("; bank: ");
-      Serial.println(String(bank));*/
       
       if (digitalRead(SWITCH_PIN) == LOW) bank = 0;
       else bank = 1;
       magicButton btn = magicButtons[i + i + bank];
-      //Serial.println(btn.name);
       blehid.keyboardReport(btn.modifier, btn.keycode);
       delay(300);
     }
@@ -141,23 +119,18 @@ void loop()
 
 /* VOLUME */
 void checkRE(){
-
   int value = RotaryEncoder.read();
-
   if (value && ((millis() - lastRE) > 100))
   {
     if ( value > 0 )
     {
       blehid.keyboardReport(noshift, REcode);
-      //Serial.println("LEFT");
     } 
     else
     {
       blehid.keyboardReport(shift, REcode);
-      //Serial.println("RIGHT");
     }
       lastRE = millis();
       blehid.keyRelease();
   }
-
 }
