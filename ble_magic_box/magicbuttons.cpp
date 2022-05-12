@@ -23,7 +23,7 @@ const magicButton magicButtons[12]{
       HID_KEY_1
     },
     {
-      "black A ",
+      "black A",
       noshift,
       HID_KEY_2
     },

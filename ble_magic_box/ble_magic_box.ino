@@ -6,16 +6,18 @@
 // *********** PINS **************** //
 
 SwRotaryEncoder swEncoder;
+
+#define ROTARY_A 5
+#define ROTARY_B 6
 #define MUTE_PIN 9
-#define SWITCH_PIN 11
-#define BTN_GREEN A1
-#define BTN_BLACK A3
-#define BTN_RED A5 
-#define BTN_WHITE A0
-#define BTN_YELLOW A2
-#define BTN_BLUE A4
-#define ROTARY_A 7
-#define ROTARY_B 10
+#define SWITCH_PIN 10
+#define BTN_GREEN A0
+#define BTN_BLACK A1
+#define BTN_RED A2 
+#define BTN_WHITE A3
+#define BTN_YELLOW A4
+#define BTN_BLUE A5 
+
 
 uint8_t REcode[6] = {HID_KEY_V};
 int pins[6] = {BTN_GREEN, BTN_BLACK, BTN_RED, BTN_WHITE, BTN_YELLOW, BTN_BLUE};
@@ -24,9 +26,12 @@ bool bank = false;
 bool wasKeyPressed = false;
 int lastRE;
 
+
 // ************* BLE ***************** //
 BLEDis bledis;
 BLEHidAdafruit blehid;
+BLEBas blebas; //battery servuce
+//BLEClientBas  clientBas;
 
 // ************ SETUP **************** //
 
@@ -40,10 +45,8 @@ void setup()
     pinMode(pins[x], INPUT_PULLUP);
   }
 
-  //while (!Serial) delay(10); // for nrf52840 with native usb
+  while (!Serial) delay(10); // for nrf52840 with native usb
   // Start encoder
-
-
   RotaryEncoder.begin(ROTARY_A, ROTARY_B);
   RotaryEncoder.start();
   lastRE = millis();
@@ -57,6 +60,12 @@ void setup()
   bledis.begin();
   blehid.begin();
   Bluefruit.Periph.setConnInterval(9, 25);
+
+  // Start the BLE Battery Service and set it to 100%
+  //Serial.println("Configuring the Battery Service");
+  blebas.begin();
+  blebas.write(100);
+
   startAdv();
 }
 
@@ -79,6 +88,8 @@ void startAdv(void)
 void loop()
 {
   checkRE();
+
+  //Serial.print(clientBas.read());
 
   if ( wasKeyPressed )
   {
@@ -106,8 +117,8 @@ void loop()
   {
     if (digitalRead(pins[i]) == LOW)
     {
-      wasKeyPressed = true;
-      
+      Serial.println(pins[i]);
+      wasKeyPressed = true; 
       if (digitalRead(SWITCH_PIN) == LOW) bank = 0;
       else bank = 1;
       magicButton btn = magicButtons[i + i + bank];
